@@ -15,17 +15,40 @@ export default function NewsFeed() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
- const fetchNews = async () => {
+const fetchNews = async () => {
     setLoading(true);
     setError('');
     try {
-      // Usamos un proxy CORS gratuito para poder leer la página desde el navegador en GitHub Pages
-      const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent('https://xeu.mx/')}`;
-      const response = await fetch(proxyUrl);
-      if (!response.ok) throw new Error('Error al cargar noticias');
+      // Lista de proxies CORS gratuitos como respaldo
+      const proxies = [
+        `https://api.allorigins.win/raw?url=${encodeURIComponent('https://xeu.mx/')}`,
+        `https://api.codetabs.com/v1/proxy?quest=https://xeu.mx/`
+      ];
       
-      const data = await response.json();
-      const html = data.contents;
+      let html = '';
+      let success = false;
+      
+      // Intentar con cada proxy hasta que uno funcione
+      for (const proxyUrl of proxies) {
+        try {
+          const response = await fetch(proxyUrl);
+          if (response.ok) {
+            const text = await response.text();
+            // Verificar que obtuvimos un HTML válido y no un mensaje de error del proxy
+            if (text && text.toLowerCase().includes('<html')) {
+              html = text;
+              success = true;
+              break;
+            }
+          }
+        } catch (e) {
+          console.warn(`Falló el proxy ${proxyUrl}:`, e);
+        }
+      }
+      
+      if (!success || !html) {
+        throw new Error('No se pudo obtener el contenido de las noticias');
+      }
       
       // Parsear el HTML directamente en el navegador
       const parser = new DOMParser();
@@ -67,7 +90,7 @@ export default function NewsFeed() {
       setArticles(parsedArticles.slice(0, 20));
     } catch (err) {
       setError('No se pudieron cargar las noticias. Intenta de nuevo más tarde.');
-      console.error(err);
+      console.error('Error en fetchNews:', err);
     } finally {
       setLoading(false);
     }
