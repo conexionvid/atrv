@@ -7,8 +7,8 @@ import { VitePWA } from 'vite-plugin-pwa';
 export default defineConfig(({mode}) => {
   const env = loadEnv(mode, '.', '');
   return {
-    plugins: [
-      base: '/atrv/'
+    base: '/atrv/',
+    plugins: [      
       react(), 
       tailwindcss(),
       VitePWA({
