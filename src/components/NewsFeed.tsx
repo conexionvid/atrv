@@ -15,14 +15,56 @@ export default function NewsFeed() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const fetchNews = async () => {
+ const fetchNews = async () => {
     setLoading(true);
     setError('');
     try {
-      const response = await fetch('/api/news');
+      // Usamos un proxy CORS gratuito para poder leer la página desde el navegador en GitHub Pages
+      const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent('https://xeu.mx/')}`;
+      const response = await fetch(proxyUrl);
       if (!response.ok) throw new Error('Error al cargar noticias');
+      
       const data = await response.json();
-      setArticles(data.articles || []);
+      const html = data.contents;
+      
+      // Parsear el HTML directamente en el navegador
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, 'text/html');
+      
+      let parsedArticles: Article[] = [];
+      const links = doc.querySelectorAll('a');
+      
+      links.forEach((el, i) => {
+        let title = el.textContent?.replace(/\s+/g, ' ').trim() || '';
+        const link = el.getAttribute('href') || '';
+        const imgEl = el.querySelector('img');
+        const img = imgEl?.getAttribute('src') || imgEl?.getAttribute('data-src') || '';
+        
+        if (title && title.length > 20 && link && link.match(/[a-z-]+\/\d+\/[a-z0-9-]+/)) {
+          const categories = ['Nacional', 'Boca del Río', 'Veracruz', 'Internacional', 'Deportes', 'Policiaca', 'Espectáculos', 'Sociedad', 'Finanzas'];
+          for (const cat of categories) {
+            if (title.startsWith(cat + ' ')) {
+              title = title.substring(cat.length + 1).trim();
+              break;
+            }
+          }
+          
+          const fullLink = link.startsWith('http') ? link : `https://xeu.mx/${link.startsWith('/') ? link.slice(1) : link}`;
+          
+          if (!parsedArticles.find(n => n.link === fullLink)) {
+            parsedArticles.push({
+              id: i.toString(),
+              title,
+              link: fullLink,
+              summary: "Haz clic para leer más sobre esta noticia en XEU.",
+              imageUrl: img && img.startsWith('http') ? img : "https://xeu.mx/images/logo.png",
+              date: new Date().toISOString()
+            });
+          }
+        }
+      });
+      
+      setArticles(parsedArticles.slice(0, 20));
     } catch (err) {
       setError('No se pudieron cargar las noticias. Intenta de nuevo más tarde.');
       console.error(err);
